@@ -44,10 +44,10 @@ Below is the sequential progression of the model's text generation (predicting S
 #### Progression (Sequence Part 2)
 ![Generation Output Part 2](output2(continued).png)
 
-#### Advanced Context (Sequence Part 3)
+#### Progression (Sequence Part 3)
 ![Generation Output Part 3](output3(continued).png)
 
-#### Refined Dialogue (Sequence Part 4)
+#### Progression (Sequence Part 4)
 ![Generation Output Part 4](output4(continued).png)
 
 ---
