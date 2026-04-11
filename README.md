@@ -36,18 +36,18 @@ The project is organized into modular files to separate the data logic from the 
 ## 📊 Sample Outputs
 
 ### Training Logs & Generation Sequence
-Below is the sequence of the model's text generation (predicting Shakespearean-style dialogue) as captured during the training process:
+Below is the sequential progression of the model's text generation (predicting Shakespearean-style dialogue) as captured during the training process:
 
-#### Phase 1: Initial Sampling
-![Initial Generation](image_9721d2.png)
+#### Initial Output (Sequence Part 1)
+![Generation Output Part 1](output1.png)
 
-#### Phase 2: Learning Context and Structure
-![Intermediate Generation](image_9721ee.png)
+#### Progression (Sequence Part 2)
+![Generation Output Part 2](output2(continued).png)
 
-#### Phase 3: Character Consistency
-![Advanced Generation](image_972209.png)
+#### Advanced Context (Sequence Part 3)
+![Generation Output Part 3](output3(continued).png)
 
-#### Phase 4: Final Refined Output
-![Final Generation](image_97220f.png)
+#### Refined Dialogue (Sequence Part 4)
+![Generation Output Part 4](output4(continued).png)
 
 ---
