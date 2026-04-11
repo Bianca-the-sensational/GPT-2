@@ -34,10 +34,10 @@ Transformer Block × n_blocks
     │       ├── Softmax + Attention Dropout
     │       └── Output Projection  → Linear(n_embed, n_embed)
     ├── Residual Connection  (x = x + attn(ln1(x)))
-    ├── Custom LayerNorm  (ε = 1e-6, Pre-Norm)
+    ├── Custom LayerNorm  
     ├── FeedForward MLP
     │       ├── Expansion  → Linear(n_embed, 4 × n_embed)
-    │       ├── ReLU Activation  ⚠️ (GPT-2 uses GELU)
+    │       ├── ReLU Activation  
     │       ├── Dropout
     │       └── Projection  → Linear(4 × n_embed, n_embed)
     └── Residual Connection  (x = x + mlp(ln2(x)))
