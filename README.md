@@ -15,26 +15,38 @@ The model is designed as a generative language model that leverages self-attenti
 
 ### 2. Decoder-Only Architecture
 
-The model follows the *GPT (Generative Pre-trained Transformer)* architecture — a decoder-only transformer.
+The model follows the *GPT (Generative Pre-trained Transformer)* architecture — a decoder-only transformer, with several deliberate deviations from the vanilla GPT-2 specification.
 
 ```
 Input Token IDs (B, T)
         ↓
-Token Embedding    +    Position Embedding
+GetEmbedding
+    ├── Token Embedding  (vocab_size → n_embed)
+    └── Position Embedding  (block_size → n_embed)
         ↓
-Transformer Block × n_layer
-    ├── LayerNorm
-    ├── Multi-Head Self Attention  (with causal mask)
-    ├── Residual Connection
-    ├── LayerNorm
-    ├── FeedForward (expand 4x → ReLU → contract)
-    └── Residual Connection
+Transformer Block × n_blocks
+    ├── Custom LayerNorm  (ε = 1e-6, Pre-Norm)
+    ├── Multi-Head Self-Attention
+    │       ├── Fused QKV Projection  → Linear(n_embed, 3 × n_embed, bias=False)
+    │       ├── Split into heads  → (B, num_heads, T, head_size)
+    │       ├── Scaled Dot-Product  (scale = head_size⁻⁰·⁵)
+    │       ├── Causal Mask  (torch.tril → masked_fill with -inf)
+    │       ├── Softmax + Attention Dropout
+    │       └── Output Projection  → Linear(n_embed, n_embed)
+    ├── Residual Connection  (x = x + attn(ln1(x)))
+    ├── Custom LayerNorm  (ε = 1e-6, Pre-Norm)
+    ├── FeedForward MLP
+    │       ├── Expansion  → Linear(n_embed, 4 × n_embed)
+    │       ├── ReLU Activation  ⚠️ (GPT-2 uses GELU)
+    │       ├── Dropout
+    │       └── Projection  → Linear(4 × n_embed, n_embed)
+    └── Residual Connection  (x = x + mlp(ln2(x)))
         ↓
-Final LayerNorm
+Final Custom LayerNorm
         ↓
-Linear Projection → Vocabulary Scores (logits)
+Linear Projection → Vocabulary Logits  (n_embed → vocab_size)
         ↓
-Cross Entropy Loss (training) / Sampling (generation)
+Cross-Entropy Loss (training)  /  Top-K Sampling with Temperature (generation)
 ```
 
 #### Key Components
@@ -98,19 +110,19 @@ Given a seed excerpt from *The Taming of the Shrew*, the model independently gen
 
 ### Sample Output Progression
 
-> **Seed context provided:** *"You wrong me, Signior Gremio: give me leave. / I am a gentleman of Verona, sir, / That, hearing of her beauty and her wit..."*
+> **Seed context provided:** *"You wrong me, Signior Gremio: give me leave."*
 
 #### Part 1 — Early Generation
-![Generation Output Part 1](outputs/output1.png)
+![Generation Output Part 1](output1.png)
 
 #### Part 2 — Continued
-![Generation Output Part 2](outputs/output2(continued).png)
+![Generation Output Part 2](output2(continued).png)
 
 #### Part 3 — Continued
-![Generation Output Part 3](outputs/output3(continued).png)
+![Generation Output Part 3](output3(continued).png)
 
 #### Part 4 — Extended Generation
-![Generation Output Part 4](outputs/output4(continued).png)
+![Generation Output Part 4](output4(continued).png)
 
 > The model sustains character identity, thematic context, and linguistic register across all four output segments — a strong signal that the self-attention mechanism is capturing long-range dependencies in the Shakespearean corpus.
 
