@@ -28,47 +28,28 @@ class MultiHeadAttention(nn.Module):
         self.num_heads = num_heads
         self.head_size = head_size
 
-        # Fused Q, K, V projection for all heads in one linear layer
-        self.qkv_projection = nn.Linear(n_embed, 3 * n_embed, bias=False)
-        # Output projection (same as self.layer in your original code)
+        # Fused Q, K, V projection for all heads in one linear layer -> converts to the Q , K , V (all combined) for all the heads combined 
+        self.qkv_projection = nn.Linear(n_embed, 3 * n_embed, bias=False) # (B , T , 3 * n_embed)
         self.output_projection = nn.Linear(n_embed, n_embed)
-        # Causal mask — same as register_buffer("tril", ...) in your Head class
         self.register_buffer("tril", torch.tril(torch.ones(block_size, block_size)))
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
-        B, T, C = x.shape  # C = n_embed
+        B, T, C = x.shape  # C = n_embed # (B , T , 3 * n_embed)
+        q, k, v = self.qkv_projection(x).split(C, dim=2) # splits into the Q , K, V vectors for all heads (B , T , n_embed)
 
-        # --- Step 1: Compute Q, K, V for ALL heads in one matmul ---
-        # qkv_projection(x) → (B, T, 3 * n_embed)
-        # .split(C, dim=2)  → three tensors of (B, T, n_embed) each
-        q, k, v = self.qkv_projection(x).split(C, dim=2)
+        q = q.view(B, T, self.num_heads, self.head_size).transpose(1, 2) # isolates the query vector for each head (B , num_heads , T , head_size)
+        k = k.view(B, T, self.num_heads, self.head_size).transpose(1, 2) # isolates the key vector for each head (B , num_heads , T , head_size)
+        v = v.view(B, T, self.num_heads, self.head_size).transpose(1, 2) # isolate the value vector for each head (B , num_heads , T , head_size)
 
-        # --- Step 2: Reshape to isolate heads ---
-        # (B, T, n_embed) → (B, T, num_heads, head_size) → (B, num_heads, T, head_size)
-        q = q.view(B, T, self.num_heads, self.head_size).transpose(1, 2)
-        k = k.view(B, T, self.num_heads, self.head_size).transpose(1, 2)
-        v = v.view(B, T, self.num_heads, self.head_size).transpose(1, 2)
-
-        # --- Step 3: Scaled dot-product attention (batched across all heads) ---
-        # q @ k^T → (B, num_heads, T, head_size) @ (B, num_heads, head_size, T)
-        #         → (B, num_heads, T, T)
         dot = q @ k.transpose(-2, -1) * (self.head_size ** -0.5)
 
-        # --- Step 4: Causal mask — identical to your Head class ---
         dot = dot.masked_fill(self.tril[:T, :T] == 0, float('-inf'))
         dot = torch.softmax(dot, dim=-1)  # (B, num_heads, T, T)
         dot = self.dropout(dot)
-
-        # --- Step 5: Weighted sum with values ---
-        # (B, num_heads, T, T) @ (B, num_heads, T, head_size) → (B, num_heads, T, head_size)
         out = dot @ v
-
-        # --- Step 6: Reassemble heads back into one tensor ---
-        # (B, num_heads, T, head_size) → (B, T, num_heads, head_size) → (B, T, n_embed)
-        out = out.transpose(1, 2).contiguous().view(B, T, C)
-
-        # --- Step 7: Output projection ---
+        out = out.transpose(1, 2).contiguous().view(B, T, C) # concatenating all the heads output to form the original dimension (B , T, n_embed)
+        
         out = self.output_projection(out)  # (B, T, n_embed)
 
         return out
@@ -80,13 +61,11 @@ class MLP(nn.Module):
         super().__init__()
         self.l1 = nn.Linear(n_embed , 4 * n_embed)
         self.relu = nn.ReLU()
-        #self.l2 = nn.Linear(4 * n_embed , 4 * n_embed)
         self.l3 = nn.Linear(4 * n_embed , n_embed)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self , idx):
         x1 = self.dropout(self.relu(self.l1(idx)))
-        #x2 = self.dropout(self.relu(self.l2(x1)))
         x3 = self.l3(x1)
 
         return x3
